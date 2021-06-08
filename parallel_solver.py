@@ -1,12 +1,18 @@
 from mpi4py import MPI
 import numpy as np
 import pickle
+import os
 
 
 comm = MPI.COMM_WORLD
 size = comm.Get_size()# make sure nx is divisible by size
 rank = comm.Get_rank()
 if rank==0:
+    existFolder = os.path.exists('heatResults')
+    if not existFolder:
+        directoryNow = os.getcwd()
+        os.mkdir(directoryNow+'//heatResults')
+    
     print('size = '+str(size))
     print('timesteps=100, dx=0.1')
 

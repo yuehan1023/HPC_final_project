@@ -1,5 +1,6 @@
 import numpy as np
 import pickle
+import os
 
 # plate size, mm
 w = 10.  
@@ -43,6 +44,12 @@ def do_timestep(u0, u):
 
     u0 = u.copy()
     return u0, u
+
+
+existFolder = os.path.exists('heatResults')
+if not existFolder:
+    directoryNow = os.getcwd()
+    os.mkdir(directoryNow+'//heatResults')
 
 # Number of timesteps
 #nsteps = 1501

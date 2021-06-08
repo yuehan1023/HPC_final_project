@@ -1,19 +1,34 @@
 from mpi4py import MPI
 import numpy as np
 import pickle
+import time
+import os
 
+t_init = time.perf_counter()
 
 comm = MPI.COMM_WORLD
 size = comm.Get_size()# make sure nx is divisible by size
 rank = comm.Get_rank()
 if rank==0:
+    existFolder = os.path.exists('heatResults')
+    if not existFolder:
+        directoryNow = os.getcwd()
+        os.mkdir(directoryNow+'//heatResults')
+    existFolder = os.path.exists('timeRecords')
+    if not existFolder:
+        directoryNow = os.getcwd()
+        os.mkdir(directoryNow+'//timeRecords')
+
     print('size = '+str(size))
     print('timesteps=100, dx=0.1')
 
 w = 25.6  # plate size, mm
 h = 32.
 dx = dy = 0.1 # intervals in x-, y- directions, mm
-
+# # for debugging
+# nsteps = 1
+# mfig = [0]
+# for normal using
 nsteps = 101
 # Output 4 figures at these timesteps
 mfig = [0, 10, 50, 100]
@@ -77,7 +92,20 @@ def do_timestep(u0, u):
     return u0, u
 
 
+#initiate the array that stores time stamps
+lenTrank_body = 2+nsteps*4
+lenTrank_ends = 2+nsteps*2
+if rank==0 or rank==size-1:
+    T_rank = np.ones((1, lenTrank_ends))
+else:
+    T_rank = np.ones((1, lenTrank_body))
 
+
+pT = 0
+T_rank[0, pT] = t_init
+pT +=1
+
+# calculation start
 fignum = 0
 for m in range(nsteps):
     u0, u = do_timestep(u0, u)
@@ -90,18 +118,30 @@ for m in range(nsteps):
         #print('rank '+str(rank)+' send to rank '+str(1)+'at m='+str(m))
     elif rank==size-1:
         req = comm.irecv(source=rank-1, tag=0)
+        T_rank[0, pT] = time.perf_counter()
+        pT +=1
         u[0,:] = req.wait()
+        T_rank[0, pT] = time.perf_counter()
+        pT +=1
         #print('rank '+str(rank)+' receive from rank '+str(rank-1)+'at m='+str(m))
     else:
         if rankIsEven:
             comm.send(u[downGhost-1,:], dest=rank+1, tag=0)
             #print('rank '+str(rank)+' send to rank '+str(rank+1)+'at m='+str(m))
             req = comm.irecv(source=rank-1, tag=0)
+            T_rank[0, pT] = time.perf_counter()
+            pT +=1
             u[0,:] = req.wait()
+            T_rank[0, pT] = time.perf_counter()
+            pT +=1
             # print('rank '+str(rank)+' receive from rank '+str(rank-1)+'at m='+str(m))
         else:
             req = comm.irecv(source=rank-1, tag=0)
+            T_rank[0, pT] = time.perf_counter()
+            pT +=1
             u[0,:] = req.wait()
+            T_rank[0, pT] = time.perf_counter()
+            pT +=1
             # print('rank '+str(rank)+' receive from rank '+str(rank-1)+'at m='+str(m))
             comm.send(u[downGhost-1,:], dest=rank+1, tag=0)
             # print('rank '+str(rank)+' send to rank '+str(rank+1)+'at m='+str(m))
@@ -109,7 +149,11 @@ for m in range(nsteps):
     # 2. up, tag=m+1
     if rank==0:
         req = comm.irecv(source=1, tag=1)
+        T_rank[0, pT] = time.perf_counter()
+        pT +=1
         u[downGhost,:] = req.wait()
+        T_rank[0, pT] = time.perf_counter()
+        pT +=1
         # print('rank '+str(rank)+' receive from rank '+str(rank+1)+'at tag='+str(m+1))
     elif rank==size-1:
         comm.send(u[1,:], dest=rank-1, tag=1)
@@ -118,12 +162,23 @@ for m in range(nsteps):
         if rankIsEven:
             comm.send(u[1,:], dest=rank-1, tag=1)
             # print('rank '+str(rank)+' send to rank '+str(rank-1)+'at tag='+str(m+1))
+            
             req = comm.irecv(source=rank+1, tag=1)
+            T_rank[0, pT] = time.perf_counter()
+            pT +=1
             u[downGhost,:] = req.wait()
+            T_rank[0, pT] = time.perf_counter()
+            pT +=1
             # print('rank '+str(rank)+' receive from rank '+str(rank+1)+'at tag='+str(m+1))
         else:
             req = comm.irecv(source=rank+1, tag=1)
+
+            T_rank[0, pT] = time.perf_counter()
+            pT +=1
             u[downGhost,:] = req.wait()
+            T_rank[0, pT] = time.perf_counter()
+            pT +=1
+
             # print('rank '+str(rank)+' receive from rank '+str(rank+1)+'at tag='+str(m+1))
             comm.send(u[1,:], dest=rank-1, tag=1)
             # print('rank '+str(rank)+' send to rank '+str(rank-1)+'at tag='+str(m+1))
@@ -135,7 +190,7 @@ for m in range(nsteps):
             print(m, fignum)
             u_global[0:nx_local,:] = u[0:nx_local,:]
             for k in range(1,size): #[)
-                u_global[nx_local*k:nx_local*(k+1),:] = comm.recv(source=k, tag=2)
+                u_global[nx_local*k:nx_local*(k+1),:] = comm.recv(source=k, tag=2)# Idk why "irecv" would not pass the compilation
             
             f = open('heatResults/result'+str(fignum)+'.txt','wb')
             pickle.dump(u_global,f)
@@ -149,5 +204,29 @@ parameters = [dt, Tcool, Thot, mfig]
 f = open('heatResults/dt_Tcool_Thot.txt','wb')
 pickle.dump(parameters,f)
 f.close()
+
+if rank==0:
+    tparameters = [size, nsteps, lenTrank_body]
+    f = open('timeRecords/size_nsteps_lenTrank.txt','wb')
+    pickle.dump(tparameters,f)
+    f.close()
+    print('size, nsteps, lenTrank_body = '),
+    print(tparameters)
+    
+
+
+
+print('rank '+str(rank)+': ')
+print('    start at '+str(T_rank[0,0])+'s    ',end="")
+print('end at '+str(T_rank[0,pT])+'s',end="")
+print('   pT = '+str(pT))
+
+T_rank[0, pT] = time.perf_counter() # record the termination time
+
+f = open('timeRecords/T_rank'+str(rank)+'.txt','wb')
+pickle.dump(T_rank,f)
+f.close()
+
+
 
 
