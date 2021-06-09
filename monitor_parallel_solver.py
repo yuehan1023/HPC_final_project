@@ -219,9 +219,9 @@ if rank==0:
 print('rank '+str(rank)+': ')
 print('    start at '+str(T_rank[0,0])+'s    ',end="")
 print('end at '+str(T_rank[0,pT])+'s',end="")
+T_rank[0, pT] = time.perf_counter() # record the termination time
 print('   pT = '+str(pT))
 
-T_rank[0, pT] = time.perf_counter() # record the termination time
 
 f = open('timeRecords/T_rank'+str(rank)+'.txt','wb')
 pickle.dump(T_rank,f)
