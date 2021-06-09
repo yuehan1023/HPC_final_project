@@ -10,6 +10,9 @@ dt = parameters[0]
 Tcool = parameters[1]
 Thot = parameters[2]
 mfig = parameters[3] 
+print('dt, Tcool, Thot = ',end=""),
+print(parameters[0:3])
+print('recorded time steps: ',end=""),
 print(mfig)
 
 fig = plt.figure()
