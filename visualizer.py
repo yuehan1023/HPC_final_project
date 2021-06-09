@@ -4,7 +4,7 @@ import matplotlib.colors
 import pickle
 
 MHz = 2601.
-Mcycle = 1
+Mcycle = 0.1
 
 f = open('timeRecords/size_nsteps_lenTrank.txt','rb')
 parameters = pickle.load(f)
@@ -92,10 +92,14 @@ for i in range(size):
         timeTable[i, istart:iend] = 0 # mark idle period as 0, mark computing period as 1
         jj+=2
     tmp = int(timeRecord[i, lenTrank-1]/tInterval)
-    timeTable[i,tmp:] = 0 #mark termination as 0
+    timeTable[i,tmp:] = 1 #mark termination as 1
 # print(timeTable)
 
-plt.figure(figsize=(size,N))
+plt.figure()
+# plt.figure(figsize=(size/100,N/100)) 
+# (256,2811)means "25600x281100 pixels is too large. It must be less than 2^16 in each direction"
 bi_cmap = matplotlib.colors.ListedColormap(['blue','yellow'])# yellow==1==computing, blue==0==idling
-plt.imshow(timeTable,cmap=bi_cmap,extent=[0,N,size,0]) # display data as an image
+plt.imshow(timeTable[:,0:int(N/10)],cmap=bi_cmap,extent=[0,N,size,0]) # display data as an image
+plt.xlabel('Clock Cycle ('+str(Mcycle)+'M)')
 plt.show()
+# timeTable
