@@ -18,15 +18,15 @@ nsteps = 10
 len_T_rank = 2+nsteps*2
 T_rank = np.ones((1, len_T_rank))
 pT = 0
-T_rank[rank, pT] = t_init
+T_rank[0, pT] = t_init
 pT +=1
 for i in range(nsteps):
     time.sleep(rank*0.001) #simulate "computing for some micro seconds"
     time.sleep(0.001)
-    T_rank[rank, pT] = time.perf_counter()
+    T_rank[0, pT] = time.perf_counter()
     pT +=1
     time.sleep(0.001) # simulate idle period
-    T_rank[rank, pT] = time.perf_counter()
+    T_rank[0, pT] = time.perf_counter()
     pT +=1
 
 if rank==0:
@@ -42,7 +42,7 @@ if rank==0:
     print('size, nsteps, lenTrank = '),
     print(parameters)
 
-T_rank[rank, pT] = time.perf_counter() # record the termination time
+T_rank[0, pT] = time.perf_counter() # record the termination time
 
 
 f = open('timeRecords/T_rank'+str(rank)+'.txt','wb')
