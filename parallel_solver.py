@@ -2,6 +2,7 @@ from mpi4py import MPI
 import numpy as np
 import pickle
 import os
+import time
 
 
 comm = MPI.COMM_WORLD
@@ -14,44 +15,47 @@ if rank==0:
         os.mkdir(directoryNow+'//heatResults')
     
     print('size = '+str(size))
-    print('timesteps=100, dx=0.1')
+    
 
 w = 25.6  # plate size, mm
 h = 32.
 dx = dy = 0.1 # intervals in x-, y- directions, mm
+if rank==0:
+    print('timesteps=100, dx='+str(dx))
 
 nsteps = 101
 # Output 4 figures at these timesteps
 mfig = [0, 10, 50, 100]
 
 D = 4. # Thermal diffusivity of steel, mm2.s-1
-Tcool, Thot = 0., 100.
-#Tcool, Thot = 300., 700.
+Tcool, Thot = 100., 300.
 
 nx, ny = int(w/dx), int(h/dy) 
 dx2, dy2 = dx*dx, dy*dy
 dt = dx2 * dy2 / (2 * D * (dx2 + dy2)) #unit:second
-# if dt > 0.0001:
-#     dt = 0.0001
 
 
 # Initial conditions - edge = Thot, inside = Tcool
-# u0_global = Thot * np.ones((nx, ny))
-# u0_global[1:-1, 1:-1] = Tcool
+init_cdt = 'hotEdge'
+u0_global = Thot * np.ones((nx, ny))
+u0_global[1:-1, 1:-1] = Tcool
 
-# Initial conditions - circle of radius r centred at (cx,cy) (mm)
-u0_global = Tcool * np.ones((nx, ny))
-r, cx, cy = 2, 5, 5
-r2 = r**2
-for i in range(nx):
-    for j in range(ny):
-        p2 = (i*dx-cx)**2 + (j*dy-cy)**2
-        if p2 < r2:
-            u0_global[i,j] = Thot
 
+# # Initial conditions - circle of radius r centred at (cx,cy) (mm)
+# init_cdt = 'hotRound'
+# u0_global = Tcool * np.ones((nx, ny))
+# r, cx, cy = 2, 5, 5
+# r2 = r**2
+# for i in range(nx):
+#     for j in range(ny):
+#         p2 = (i*dx-cx)**2 + (j*dy-cy)**2
+#         if p2 < r2:
+#             u0_global[i,j] = Thot
+
+
+# initialize the size of u, u0 for each process
 nx_local = int(nx/size)
 ny_local = ny
-
 if rank==0:
     x_start = 0
     x_end = nx_local
@@ -85,6 +89,7 @@ def do_timestep(u0, u):
 
 
 fignum = 0
+t_start = time.perf_counter()
 for m in range(nsteps):
     u0, u = do_timestep(u0, u)
     # a process must ask for the value at the ghost cells before next calculation!
@@ -149,7 +154,31 @@ for m in range(nsteps):
         else:
             comm.send(u[1:nx_local+1, :], dest=0, tag=2)
             #print('rank '+str(rank)+' finally send to rank0')
+t_end = time.perf_counter()
+if rank==0:
+    sclTestRslt = np.ones((size,2)) # if you store a 2-D array into "*.txt", you will not be able to load it
+    sclTestRslt[0,0] = t_start
+    sclTestRslt[0,1] = t_end
+    # sclTestRslt = np.ones((1,int(size*2)))
+    # sclTestRslt[0,0] = t_start
+    # sclTestRslt[0,1] = t_end
+    for i in range(1,size):
+        sclTestRslt[i,0] = comm.recv(source=i,tag=3)
+        sclTestRslt[i,1] = comm.recv(source=i,tag=4)
+        # sclTestRslt[i,i*2] = comm.recv(source=i,tag=3)
+        # sclTestRslt[i,i*2+1] = comm.recv(source=i,tag=4)
 
+    existFolder = os.path.exists('scalingTestResults')
+    if not existFolder:
+        directoryNow = os.getcwd()
+        os.mkdir(directoryNow+'//scalingTestResults')
+    print('haha')
+    f = open('scalingTestResults/'+init_cdt+'_size'+str(size)+'.txt','wb')
+    pickle.dump(sclTestRslt,f)
+    f.close()
+else:
+    comm.send(t_start, dest=0, tag=3)
+    comm.send(t_end, dest=0, tag=4)
 
 parameters = [dt, Tcool, Thot, mfig]
 f = open('heatResults/dt_Tcool_Thot.txt','wb')
