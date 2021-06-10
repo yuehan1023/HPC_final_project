@@ -1,31 +1,33 @@
 import numpy as np
 import pickle
 import os
+import time
 
 # plate size, mm
-w = 10.  
-h = 10.
+w = 25.6  
+h = 32.
 # intervals in x-, y- directions, mm
 dx = dy = 0.1
 # Thermal diffusivity of steel, mm2.s-1
 D = 4.
 
-#Tcool, Thot = 0., 100.
+
 Tcool, Thot = 300., 700.
 
 nx, ny = int(w/dx), int(h/dy)
 
 dx2, dy2 = dx*dx, dy*dy
 dt = dx2 * dy2 / (2 * D * (dx2 + dy2)) #unit:second
-# if dt > 0.0001:
-#     dt = 0.0001
+
 
 # Initial conditions - edge = Thot, inside = Tcool
+init_cdt = 'hotedge'
 u0 = Thot * np.ones((nx, ny))
 u0[1:-1, 1:-1] = Tcool
 u = u0.copy()
 
 # Initial conditions - circle of radius r centred at (cx,cy) (mm)
+# init_cdt = 'hotRound'
 # u0 = Tcool * np.ones((nx, ny))
 # r, cx, cy = 2, 5, 5
 # r2 = r**2
@@ -58,6 +60,9 @@ nsteps = 101
 #mfig = [0, 500, 1000, 1500]
 mfig = [0, 10, 50, 100]
 fignum = 0
+
+
+t_start = time.perf_counter()
 for m in range(nsteps):
     u0, u = do_timestep(u0, u)
     if m in mfig:
@@ -66,6 +71,13 @@ for m in range(nsteps):
         f = open('heatResults/result'+str(fignum)+'.txt','wb')
         pickle.dump(u,f)
         f.close()
+t = time.perf_counter() - t_start
+print('calculation execution time = ',end=""),
+print(t,end=""),
+print(' s')
+print('dx=dy= '+str(dx))
+print('initial condition: '+init_cdt)
+
 
 parameters = [dt, Tcool, Thot, mfig]
 f = open('heatResults/dt_Tcool_Thot.txt','wb')
