@@ -8,7 +8,7 @@ Mcycle = 0.1
 
 f = open('timeRecords/size_nsteps_lenTrank.txt','rb')
 parameters = pickle.load(f)
-f.close
+f.close()
 
 # load parameters
 size = parameters[0]
@@ -31,7 +31,7 @@ for i in range(size):
         timeRecord[i, 0:lenTrank_ends] = pickle.load(f)
     else:
         timeRecord[i, :] = pickle.load(f)
-    f.close
+    f.close()
 
     print('rank '+str(i)+': ')
     print('    start at '+str(timeRecord[i, 0])+'s    ',end="")
